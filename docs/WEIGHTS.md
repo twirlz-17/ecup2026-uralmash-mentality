@@ -15,7 +15,7 @@ CRC-identical.
 - `inference/run.py`, `inference/src/*.py`, `inference/metadata.json` — byte-identical to the archive,
   CRLF and all.
 
-## What is not (2.92 GB, four large blobs plus three tokenizers)
+## What is not (seven files, 2.96 GB)
 
 Lay them out as `weights/ce-1/`, `weights/ce-2/`, `weights/ce-3/` and point
 `inference/build_submission.py --weights` at the parent.
