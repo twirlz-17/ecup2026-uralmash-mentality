@@ -13,18 +13,28 @@ Start with A — it is what actually produced 0.5414129346430998.
 
 ## A. Rebuild and run the graded archive
 
+**This has been done and checked.** Rebuilding from this repository plus the
+weight bundle produces an archive whose **47 entries are all CRC-identical to
+`submission_v46.zip`**, at the same 2.91 GB. Only the zip's own timestamps
+differ.
+
 ### A.1 Get the weights
 
-`docs/WEIGHTS.md` lists every file with its size and sha256. Lay them out as:
+Everything except seven large blobs is already in this repo, byte-identical to
+the graded archive — `run.py`, `src/*.py`, `metadata.json`, all 25 GBDT files,
+and each checkpoint's small config files. The bundle supplies only:
 
 ```
 weights/
-  ce-1/    t176full-ep1          (config.json, model.safetensors, tokenizer.json, tokenizer_config.json)
-  ce-2/    t120loss-pw0.134-ep1  (+ sentencepiece.bpe.model, special_tokens_map.json)
-  ce-3/    alexbge-fp16          (config.json, model.safetensors, tokenizer.json, tokenizer_config.json)
+  ce-1/  model.safetensors  tokenizer.json
+  ce-2/  model.safetensors  tokenizer.json  sentencepiece.bpe.model
+  ce-3/  model.safetensors  tokenizer.json
 ```
 
-The GBDT is already in this repo at `inference/models/gbdt/`.
+`docs/WEIGHTS.md` gives the size and sha256 of each, read out of the graded
+archive itself. `stage_weights.py` verifies them against that manifest before
+copying, so a truncated download is caught here rather than inside a 2.9 GB
+archive.
 
 ### A.2 Build the archive
 
@@ -32,8 +42,19 @@ The GBDT is already in this repo at `inference/models/gbdt/`.
 python inference/build_submission.py --weights weights/ --out submission_v46.zip
 ```
 
-Writes ~2.9 GB, `ZIP_STORED` (safetensors do not compress, and the grader
-unpacks under a time budget). The script prints the entry list and a sha256.
+and, with a copy of the graded archive to hand, prove the rebuild:
+
+```bash
+python inference/build_submission.py --weights weights/ --out rebuilt.zip \
+       --verify /path/to/submission_v46.zip
+# VERIFIED: all 47 entries CRC-identical to /path/to/submission_v46.zip
+```
+
+Compression is deliberately not uniform: 43 entries are DEFLATE and the four
+`models/ce-3/*` entries are STORED, because the CE-3 stage was appended to an
+already-built archive by a script that wrote with `ZIP_STORED`. The builder
+reproduces that split — it is why the rebuild lands at 2.91 GB and not 3.26 GB.
+It has no effect on scoring.
 
 ### A.3 Run it in the grader image
 
@@ -199,25 +220,33 @@ validation (an earlier round leaked the validation half into them and read
 
 ---
 
-## C. What cannot be reproduced from this repo
+## C. Provenance notes, and the one thing still not reproducible
 
-Stated plainly rather than left for a reviewer to find:
+**`inference/src/ce.py` was reconstructed before the graded archive was
+recovered, and then confirmed against it.** The repo's working copy of that file
+predated three shipped edits, so `provenance/rebuild_ce.py` replays the three
+build scripts that actually produced it — v21 base → v24 tokenizer warmup → v25
+character cap → v26 token-sorted `_score` — asserting at every anchor. The
+result is byte-identical to `src/ce.py` in `submission_v46.zip`, and the script
+is kept because it is the only readable record of how that file came to be.
 
-- **The exact `.zip` bytes.** The graded archives were built by a chain of
-  one-variable patches over previous archives, and the local copies were deleted
-  after the deadline. `inference/build_submission.py` rebuilds the same content
-  from source; the entry *order* and timestamps differ, so the file hash will
-  not match.
-- **`inference/src/ce.py` was reconstructed**, not copied, from the three build
-  scripts that produced it (`provenance/rebuild_ce.py` shows the chain step by
-  step and asserts at every anchor). It compiles and its structure matches the
-  build scripts' own post-conditions.
-- **The declared base image.** `inference/metadata.json` in this repo carries
-  `odsai/ecup26-matching-baseline:1.0`; the harness we ran locally used
-  `twirlz/ecup26-matching:1.0`, and `inference/Dockerfile` builds a derived
-  image adding `libgomp1`, `lightgbm==4.6.0` and `rapidfuzz==3.14.4`. Which of
-  the three the final archive declared should be read off the submitted zip
-  rather than trusted from here.
-- **Wall-clock timings on grader hardware.** Every local timing was measured on
-  an RTX PRO 6000 / RTX 6000-class box, and our own cost model was wrong by
-  enough to say the champion configuration should not fit when it did.
+Its line endings are worth one sentence, because they will look like corruption
+otherwise: **`src/ce.py` has mixed endings.** The v26 patch spliced an LF
+function into a CRLF file, so 144 lines end CRLF and 109 end LF. `run.py` is
+uniformly CRLF. `.gitattributes` exempts the whole `inference/` tree from
+end-of-line normalisation so git cannot quietly break byte-equality.
+
+The archive declares `twirlz/ecup26-matching:1.0` (`inference/metadata.json`,
+byte-identical to the archive's). `inference/Dockerfile` is kept alongside it: it
+builds a derived image adding `libgomp1`, `lightgbm==4.6.0` and
+`rapidfuzz==3.14.4`, and it records why — the baseline image ships no `libgomp`,
+and the earlier workaround of vendoring unpacked wheels onto `sys.path` made the
+container fail to finish three times.
+
+**What genuinely cannot be reproduced here: wall-clock timings on grader
+hardware.** Every local timing came from an RTX PRO 6000 / RTX 6000-class box.
+Our own cost model was wrong by enough to insist the champion configuration
+should not fit inside the budget — while the board says it did. Two later
+submissions then overran the private budget and returned
+`Error: Container did not finish in time`. Anyone reasoning about what else
+would have fitted should measure on an H100, not trust the numbers in this repo.

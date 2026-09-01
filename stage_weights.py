@@ -22,7 +22,7 @@ def manifest():
     text = (HERE / "docs" / "WEIGHTS.md").read_text(encoding="utf-8")
     out, slot = {}, None
     for line in text.splitlines():
-        m = re.match(r"^## `([^`]+)/`", line)
+        m = re.match(r"^#+ `([^`]+)/`", line)
         if m:
             slot = m.group(1)
             out[slot] = {}

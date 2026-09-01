@@ -20,6 +20,13 @@ The grader runs `python -u run.py` in a fixed image on an H100 80GB. Budgets are
 then each better blend — so a stage that dies late still has the best answer it
 reached on disk. Everything below is `inference/run.py`.
 
+The archive has **47 entries and carries three cross-encoders**: `models/gbdt/`,
+`models/ce-e5-base/`, `models/ce-2/` and `models/ce-3/`. That is worth stating
+explicitly because it is easy to misremember — v46 is the *three*-cross-encoder
+build, and the fourth stage that v47 added never executed. Every non-weight file
+in `inference/` is byte-identical to that archive; `build_submission.py --verify`
+checks all 47 entries by CRC.
+
 ### 1.1 GBDT — every pair
 
 `src/gbdt_v2.py` + `models/gbdt/` (25 files, 286 MB). Two LightGBM boosters over

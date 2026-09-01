@@ -3,3 +3,10 @@
 *.py text eol=lf
 *.md text eol=lf
 *.npz binary
+
+# The inference tree is the graded archive's own bytes, verified entry-by-entry
+# against submission_v46.zip. run.py and src/ce.py ship with CRLF (ce.py has
+# MIXED endings, because the token-sort patch spliced an LF function into a CRLF
+# file). Normalising them would still run, but it would break byte-equality with
+# what the grader executed -- so git must not touch them.
+inference/** -text
