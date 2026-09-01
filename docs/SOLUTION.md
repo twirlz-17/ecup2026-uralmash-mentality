@@ -23,9 +23,13 @@ reached on disk. Everything below is `inference/run.py`.
 The archive has **47 entries and carries three cross-encoders**: `models/gbdt/`,
 `models/ce-e5-base/`, `models/ce-2/` and `models/ce-3/`. That is worth stating
 explicitly because it is easy to misremember — v46 is the *three*-cross-encoder
-build, and the fourth stage that v47 added never executed. Every non-weight file
-in `inference/` is byte-identical to that archive; `build_submission.py --verify`
-checks all 47 entries by CRC.
+build, and the fourth stage that v47 added never executed.
+
+The other selected submission, **v45**, is the same archive minus the third
+stage: 43 entries, of which 42 are byte-identical to v46's, with the whole
+difference in `run.py` amounting to a single inserted hunk of 63 lines. Both
+rebuild from this repository and verify CRC-identical against the graded files
+(`build_submission.py --variant v45|v46 --verify`).
 
 ### 1.1 GBDT — every pair
 

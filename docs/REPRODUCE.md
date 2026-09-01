@@ -13,10 +13,21 @@ Start with A — it is what actually produced 0.5414129346430998.
 
 ## A. Rebuild and run the graded archive
 
-**This has been done and checked.** Rebuilding from this repository plus the
-weight bundle produces an archive whose **47 entries are all CRC-identical to
-`submission_v46.zip`**, at the same 2.91 GB. Only the zip's own timestamps
-differ.
+**Both selected submissions rebuild from this tree and have been checked against
+the graded files:**
+
+| variant | entries | size | result |
+|---|---|---|---|
+| v46 (0.5414129346430998) | 47 | 2.91 GB | all 47 CRC-identical |
+| v45 (0.5331887134560345) | 43 | 1.76 GB | all 43 CRC-identical |
+
+Only the zips' own timestamps differ.
+
+Comparing the two archives also shows what separates them, from the artifacts
+rather than from intent: the four extra entries in v46 are `models/ce-3/*`; of
+the 43 shared entries 42 are byte-identical; and the `run.py` difference is
+**one hunk — 63 lines added, none removed, none changed**. v46 is v45 plus a
+third cascaded stage and nothing else.
 
 ### A.1 Get the weights
 
@@ -40,21 +51,32 @@ archive.
 
 ```bash
 python inference/build_submission.py --weights weights/ --out submission_v46.zip
+python inference/build_submission.py --variant v45 --weights weights/ \
+       --out submission_v45.zip
 ```
 
-and, with a copy of the graded archive to hand, prove the rebuild:
+and, with copies of the graded archives to hand, prove the rebuilds:
 
 ```bash
-python inference/build_submission.py --weights weights/ --out rebuilt.zip \
+python inference/build_submission.py --weights weights/ --out rebuilt46.zip \
        --verify /path/to/submission_v46.zip
 # VERIFIED: all 47 entries CRC-identical to /path/to/submission_v46.zip
+
+python inference/build_submission.py --variant v45 --weights weights/ \
+       --out rebuilt45.zip --verify /path/to/submission_v45.zip
+# VERIFIED: all 43 entries CRC-identical to /path/to/submission_v45.zip
 ```
 
-Compression is deliberately not uniform: 43 entries are DEFLATE and the four
-`models/ce-3/*` entries are STORED, because the CE-3 stage was appended to an
-already-built archive by a script that wrote with `ZIP_STORED`. The builder
-reproduces that split — it is why the rebuild lands at 2.91 GB and not 3.26 GB.
-It has no effect on scoring.
+`--variant v45` ships the archive's own v45 `run.py` (kept verbatim at
+`inference/variants/v45/run.py`) and omits the `models/ce-3/` slot. Everything
+else — code, GBDT, CE-1 and CE-2 — is shared between the two builds.
+
+In v46, compression is deliberately not uniform: 43 entries are DEFLATE and the
+four `models/ce-3/*` entries are STORED, because the CE-3 stage was appended to
+an already-built archive by a script that wrote with `ZIP_STORED`. v45, having
+had nothing appended to it, is uniformly DEFLATE. The builder reproduces both —
+it is why the v46 rebuild lands at 2.91 GB and not 3.26 GB. It has no effect on
+scoring.
 
 ### A.3 Run it in the grader image
 

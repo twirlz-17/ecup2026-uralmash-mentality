@@ -53,6 +53,10 @@ SLOTS = [("models/ce-e5-base", "ce-1", ["model.safetensors", "tokenizer.json"]),
          ("models/ce-2", "ce-2", ["model.safetensors", "tokenizer.json",
                                   "sentencepiece.bpe.model"]),
          ("models/ce-3", "ce-3", ["model.safetensors", "tokenizer.json"])]
+# v45 predates the third stage: same everything, minus the ce-3 slot, with the
+# run.py that has no CE-3 block. Its archive is uniformly DEFLATE, because
+# nothing was appended to it afterwards.
+V45_DROP = "models/ce-3"
 CONFIGS = ["config.json", "tokenizer_config.json", "special_tokens_map.json"]
 # see the header: the CE-3 slot was appended by a ZIP_STORED writer
 STORED_PREFIX = "models/ce-3/"
@@ -63,17 +67,23 @@ def main():
     ap.add_argument("--weights", required=True)
     ap.add_argument("--out", default="submission_v46.zip")
     ap.add_argument("--verify", help="path to the graded archive to compare against")
+    ap.add_argument("--variant", choices=["v46", "v45"], default="v46",
+                    help="which selected submission to build (default v46)")
     a = ap.parse_args()
     w, out = pathlib.Path(a.weights), pathlib.Path(a.out)
     if out.exists():
         raise SystemExit("refusing to overwrite %s" % out)
 
+    v45 = a.variant == "v45"
     plan = []                       # (archive name, source path)
     for rel in CODE:
-        plan.append((rel, HERE / rel))
+        src = HERE / "variants" / "v45" / "run.py" if (v45 and rel == "run.py")             else HERE / rel
+        plan.append((rel, src))
     for f in sorted(os.listdir(HERE / "models" / "gbdt")):
         plan.append(("models/gbdt/" + f, HERE / "models" / "gbdt" / f))
     for arc, sub, big in SLOTS:
+        if v45 and arc == V45_DROP:
+            continue
         for f in CONFIGS:
             p = HERE / "models" / sub / f
             if p.exists():
@@ -89,7 +99,7 @@ def main():
         for name, src in plan:
             z.write(src, name,
                     compress_type=(zipfile.ZIP_STORED
-                                   if name.startswith(STORED_PREFIX)
+                                   if (not v45 and name.startswith(STORED_PREFIX))
                                    else zipfile.ZIP_DEFLATED))
     tmp.replace(out)
 
@@ -97,8 +107,8 @@ def main():
     with open(out, "rb") as f:
         for b in iter(lambda: f.read(1 << 22), b""):
             blob_sha.update(b)
-    print("wrote %s  %.2f GB  %d entries  sha256 %s"
-          % (out, out.stat().st_size / 1e9, len(plan), blob_sha.hexdigest()))
+    print("wrote %s (%s)  %.2f GB  %d entries  sha256 %s"
+          % (out, a.variant, out.stat().st_size / 1e9, len(plan), blob_sha.hexdigest()))
 
     if not a.verify:
         return
